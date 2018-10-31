@@ -1,11 +1,12 @@
-from flask import Flask, request, redirect, render_template
+from flask import Flask, request, redirect, render_template, session, flash
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 app.config['DEBUG'] = True
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://get-it-done:NULL@localhost:8889/get-it-done'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://get-it-done:Lc101@localhost:8889/get-it-done'
 app.config['SQLALCHEMY_ECHO'] = True
 db = SQLAlchemy(app)
+app.secret_key = "auri37ckl4lfjrcn"
 
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -15,6 +16,61 @@ class Task(db.Model):
     def __init__(self, name):
         self.name = name
         self.completed = False
+
+
+class User(db.Model):
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True)
+    password = db.Column(db.String(120))
+
+    def __init__(self, email, password):
+        self.email = email
+        self.password = password
+
+@app.before_request     #runs first to ensure user is logged in, if nor, redirects to login page
+def require_login():
+    allowed_routes = ['login', 'register']
+    if request.endpoint not in allowed_routes and 'email' not in session:
+        return redirect('/login')
+
+@app.route('/login', methods=['POST', 'GET'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        user = User.query.filter_by(email=email).first()
+        if user and user.password == password:
+            session['email'] = email    #remembers user in this session
+            flash("Logged In")
+            return redirect('/')
+        else:
+            flash('User password is incorrect, or user does not exist!', 'error')
+
+    return render_template('login.html')
+
+
+@app.route('/register', methods=['POST', 'GET'])
+def register():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        verify = request.form['verify']
+
+        # TODO - validate user's data, just like user-signup project, making sure email has @ and ., passwords match, etc
+
+        existing_user = User.query.filter_by(email=email).first()
+        if not existing_user:
+            new_user = User(email, password)
+            db.session.add(new_user)
+            db.session.commit()
+            session['email'] = email
+            return redirect('/')
+        else:
+            # TODO - user better response messaging
+            return "<h1>Duplicate user</h1>"
+
+    return render_template('register.html')
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -40,6 +96,11 @@ def delete_task():
     db.session.add(task)
     db.session.commit()
 
+    return redirect('/')
+
+@app.route('/logout', methods=['GET'])
+def logout():
+    del session['email'] #logs user out by deleting session identifier
     return redirect('/')
 
 if __name__ == '__main__':
