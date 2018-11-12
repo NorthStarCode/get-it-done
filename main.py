@@ -106,7 +106,7 @@ def delete_task():
 
 @app.route('/logout', methods=['GET'])
 def logout():
-    del session['email'] #logs user out by deleting session identifier
+    del session['username'] #logs user out by deleting session identifier
     return redirect('/')
 
 if __name__ == '__main__':
